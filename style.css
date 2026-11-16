@@ -1,0 +1,149 @@
+.stApp {
+    background: #ffffff;
+    color: #14284b;
+}
+header[data-testid="stHeader"] { background: #ffffff; }
+.block-container {
+    padding-top: 1.2rem;
+    padding-bottom: 1.5rem;
+    max-width: 100%;
+}
+.brand-panel {
+    min-height: 690px;
+    height: 100%;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #eaf4ff 0%, #d9ebff 100%);
+    border: 1px solid #c9e0fb;
+    padding: 22px 10px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-shadow: 0 5px 18px rgba(45, 105, 170, .08);
+}
+.book-icon { font-size: 48px; margin-bottom: 18px; }
+.brand-name {
+    color: #12366b;
+    font-size: 19px;
+    line-height: 1.35;
+    font-weight: 800;
+}
+.brand-caption {
+    color: #55749b;
+    font-size: 11px;
+    margin-top: 15px;
+}
+.page-heading {
+    padding: 3px 2px 15px 2px;
+}
+.heading-title {
+    color: #153c76;
+    font-size: 29px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+}
+.heading-subtitle {
+    color: #6d829d;
+    font-size: 13px;
+    margin-top: 3px;
+}
+.metric-card {
+    background: #edf5ff;
+    border: 1px solid #c9def7;
+    border-radius: 12px;
+    padding: 13px 14px;
+    min-height: 88px;
+    box-shadow: 0 3px 10px rgba(44, 102, 165, .05);
+}
+.metric-label {
+    color: #526f94;
+    font-size: 11px;
+    font-weight: 650;
+}
+.metric-value {
+    color: #1555a1;
+    font-size: 27px;
+    line-height: 1.4;
+    font-weight: 800;
+}
+.metric-filename {
+    color: #1555a1;
+    font-size: 14px;
+    font-weight: 750;
+    margin-top: 10px;
+    overflow-wrap: anywhere;
+}
+.section-title {
+    color: #173d72;
+    font-size: 17px;
+    font-weight: 750;
+    margin-top: 18px;
+    margin-bottom: 7px;
+}
+.question-title { margin-top: 17px; }
+.answer-title { margin-top: 18px; }
+.right-panel-title {
+    color: #173d72;
+    font-size: 16px;
+    font-weight: 750;
+    margin: 4px 0 10px 0;
+}
+.right-divider {
+    height: 1px;
+    background: #d9e7f7;
+    margin: 18px 0;
+}
+.upload-drop {
+    background: #f2f8ff;
+    border: 1px dashed #7daee6;
+    border-radius: 12px;
+    padding: 25px 8px;
+    text-align: center;
+    color: #2870bd;
+    line-height: 1.8;
+    margin-top: 10px;
+}
+.upload-drop span { color: #7890aa; font-size: 11px; }
+.output-card {
+    background: #f2f7ff;
+    border: 1px solid #c9def7;
+    border-radius: 12px;
+    padding: 19px;
+    min-height: 75px;
+    color: #536b88;
+}
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stSelectbox"] div[data-baseweb="select"] {
+    border: 1px solid #c7dcf5;
+    border-radius: 10px;
+    background: #fafdff;
+}
+.stButton > button {
+    background: #2168bd;
+    color: #ffffff;
+    border: 1px solid #2168bd;
+    border-radius: 9px;
+    min-height: 42px;
+    font-weight: 700;
+}
+.stButton > button:hover {
+    background: #174f96;
+    border-color: #174f96;
+    color: #ffffff;
+}
+div[data-testid="stFileUploader"] {
+    background: #f4f9ff;
+    border: 1px dashed #8bb7e8;
+    border-radius: 11px;
+    padding: 9px;
+}
+div[data-testid="stExpander"] {
+    border: 1px solid #c9def7;
+    border-radius: 11px;
+    background: #f7fbff;
+}
+div[data-testid="stAlert"] { border-radius: 10px; }
+@media (max-width: 900px) {
+    .brand-panel { min-height: 220px; }
+    .heading-title { font-size: 23px; }
+}
