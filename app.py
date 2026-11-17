@@ -80,15 +80,20 @@ with st.sidebar:
         for key, f in current.items():
             if key in ss["docs"] or key in ss["failed"]:
                 continue
-            with st.spinner(f"Reading & indexing {f.name} ..."):
-                try:
-                    stats = rag.index_pdf(ss["sid"], f.name, f.getvalue())
-                    ss["docs"][key] = {"name": f.name, **stats}
-                except rag.RAGError as e:
-                    ss["failed"][key] = str(e)
-                except Exception:
-                    log.exception("indexing crashed")
-                    ss["failed"][key] = "Something went wrong while indexing this file."
+            bar = st.progress(0.0, text=f"Reading {f.name} ...")
+
+            def on_progress(done, total, msg, _bar=bar):
+                _bar.progress(min(done / max(total, 1), 1.0), text=f"{msg} ({done}/{total})")
+
+            try:
+                stats = rag.index_pdf(ss["sid"], f.name, f.getvalue(), on_progress)
+                ss["docs"][key] = {"name": f.name, **stats}
+            except rag.RAGError as e:
+                ss["failed"][key] = str(e)
+            except Exception:
+                log.exception("indexing crashed")
+                ss["failed"][key] = "Something went wrong while indexing this file."
+            bar.empty()
 
     for key, info in ss["docs"].items():
         st.markdown(
@@ -97,6 +102,9 @@ with st.sidebar:
             unsafe_allow_html=True)
     for key, msg in ss["failed"].items():
         st.error(f'{key.rsplit(":", 1)[0]}: {msg}')
+    if ss["failed"] and st.button("🔄 Retry failed files"):
+        ss["failed"].clear()
+        st.rerun()
 
 # ------------------------------------------------------------ header
 st.markdown('<h1 class="app-title">🛡️ AI Knowledge Base System</h1>'
