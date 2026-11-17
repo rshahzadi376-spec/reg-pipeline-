@@ -42,3 +42,6 @@ section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] { backgr
 .demo-note { font-size:.78rem; color:#fbbf24; margin-top:.4rem; }
 div[data-testid="stExpander"] { background:#101a38; border:1px solid rgba(148,163,184,.2); border-radius:12px; }
 footer, #MainMenu { visibility:hidden; }
+
+/* chunk text keeps line breaks from the PDF */
+.chunk-text { white-space: pre-wrap; }
