@@ -86,7 +86,13 @@ with st.sidebar:
                 '<div class="hub-sub">Upload the PDFs you want to query</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sb-label">Organization / Topic</div>', unsafe_allow_html=True)
-    org = st.text_input("Organization", placeholder="e.g. NovaTech Solutions", label_visibility="collapsed")
+    org = st.text_input(
+        "Organization",
+        placeholder="Enter your company / document name",
+        label_visibility="collapsed",
+        autocomplete="off",      # stops the browser from suggesting old entries
+        key="org_name",
+    )
 
     st.markdown('<div class="sb-label">Upload new PDF report</div>', unsafe_allow_html=True)
     files = st.file_uploader("PDF", type=["pdf"], accept_multiple_files=True, label_visibility="collapsed")
@@ -106,13 +112,6 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
-    st.markdown(
-        '<div class="sys-info">• <b>Max limit:</b> 200 MB<br>'
-        '• <b>Protocol:</b> Secure Vector Search<br>'
-        '• <b>Model:</b> Gemini Flash<br>'
-        f'• <b>Top-K retrieval:</b> {TOP_K} chunks</div>',
-        unsafe_allow_html=True,
-    )
 
 # ------------------------------------------------------------------ header
 st.markdown('<h1 class="app-title">🛡️ AI Knowledge Base System</h1>'
@@ -139,10 +138,10 @@ with c2:
 with st.form("query_form", clear_on_submit=False):
     question = st.text_input(
         "Enter your question regarding the report:",
-        placeholder="e.g. What are the main financial highlights and total revenue figures?",
         max_chars=MAX_QUESTION_LEN,
+        autocomplete="off",
     )
-    submitted = st.form_submit_button("Submit")
+    submitted = st.form_submit_button("Get Answer")
 
 if submitted:
     ok, value = validate_question(question)
@@ -172,19 +171,21 @@ else:
     if res.get("demo"):
         st.markdown('<div class="demo-note">⚠ Demo mode: backend not connected yet.</div>', unsafe_allow_html=True)
 
-    st.markdown(f'<div class="section-title" style="margin-top:1.4rem">🔎 Top {TOP_K} Retrieved Chunks</div>',
+    st.markdown('<div class="section-title" style="margin-top:1.4rem">📚 Sources</div>',
                 unsafe_allow_html=True)
     for ch in res["chunks"]:
-        st.markdown(
-            f'''<div class="chunk-card">
-                  <div class="chunk-head">
-                    <span><span class="chunk-rank">#{ch["rank"]}</span> &nbsp;{html.escape(ch["source"])} · page {ch["page"]}</span>
-                    <span class="chunk-score">Similarity {ch["score"]:.0%}</span>
-                  </div>
-                  <div class="chunk-text">{html.escape(ch["text"])}</div>
-                </div>''',
-            unsafe_allow_html=True,
-        )
+        label = f'📎 Source {ch["rank"]}  ·  {ch["source"]}  ·  page {ch["page"]}'
+        with st.expander(label):
+            st.markdown(
+                f'''<div class="chunk-card">
+                      <div class="chunk-head">
+                        <span>Retrieved chunk from <b>{html.escape(ch["source"])}</b> (page {ch["page"]})</span>
+                        <span class="chunk-score">Similarity {ch["score"]:.0%}</span>
+                      </div>
+                      <div class="chunk-text">{html.escape(ch["text"])}</div>
+                    </div>''',
+                unsafe_allow_html=True,
+            )
 
     with st.expander("🔒 Security & Full Vector Log"):
         st.markdown(
