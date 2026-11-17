@@ -30,7 +30,7 @@ TOP_K = 3
 MAX_PDF_MB = 25
 MAX_PAGES = 150
 MAX_CHUNKS_PER_SESSION = 800
-EMBED_BATCH = 50
+EMBED_BATCH = 20
 
 DEFAULT_CHAT_MODELS = [
     "gemini-3.6-flash",
@@ -67,6 +67,16 @@ def secret(name, default=None):
     except Exception:
         pass
     return os.environ.get(name, default)
+
+
+def safe_error(e):
+    """Short 'ErrorType: message' for the UI, with any secret values removed."""
+    msg = f"{type(e).__name__}: {e}"
+    for name in ("GEMINI_API_KEY", "QDRANT_API_KEY", "QDRANT_URL"):
+        val = secret(name)
+        if val:
+            msg = msg.replace(str(val), "***")
+    return msg[:300]
 
 
 def missing_config():
@@ -172,13 +182,37 @@ def split_text(text, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
 
 
 # ----------------------------------------------------------------- embeddings
-def embed(texts, task_type):
-    from google.genai import types
-    client = _gemini()
+def _quota_kind(err):
+    """Tell apart: no free quota at all / daily quota used up / per-minute limit."""
+    t = str(err)
+    u = t.upper()
+    if "429" not in u and "RESOURCE_EXHAUSTED" not in u:
+        return None
+    if "LIMIT: 0" in u:
+        return "zero"
+    if "PERDAY" in u or "PER DAY" in u or "DAILY" in u:
+        return "daily"
+    return "minute"
+
+
+def _retry_delay(err, default):
+    """Use the wait time Google suggests (e.g. 'retry in 23.4s') when present."""
+    m = re.search(r"retry(?:Delay)?\D{0,12}(\d+(?:\.\d+)?)\s*s", str(err), re.I)
+    return min(float(m.group(1)) + 1, 60) if m else default
+
+
+def embed(texts, task_type, progress=None):
+    try:
+        from google.genai import types
+        client = _gemini()
+    except Exception as e:
+        log.exception("could not start Gemini client")
+        raise RAGError("Could not start the Gemini client -> " + safe_error(e))
     vectors = []
-    for i in range(0, len(texts), EMBED_BATCH):
+    total = len(texts)
+    for i in range(0, total, EMBED_BATCH):
         batch = texts[i:i + EMBED_BATCH]
-        for attempt in range(5):
+        for attempt in range(6):
             try:
                 res = client.models.embed_content(
                     model=EMBED_MODEL,
@@ -189,13 +223,27 @@ def embed(texts, task_type):
                 break
             except Exception as e:
                 log.warning("embed attempt %s failed: %s", attempt + 1, e)
-                if attempt == 4 or not _retryable(e):
-                    if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e).upper():
-                        raise RAGError("The AI service is busy (free quota reached). Please wait a minute and try again.")
+                kind = _quota_kind(e)
+                if kind == "daily":
+                    raise RAGError("Today's free Gemini quota for embeddings is used up. "
+                                   "Use a new API key from a NEW project in Google AI Studio, "
+                                   "or try again tomorrow.")
+                if kind == "zero":
+                    raise RAGError("This Gemini API key has no free quota for the embedding model. "
+                                   "Create a new API key in a NEW project in Google AI Studio.")
+                if attempt == 5 or not _retryable(e):
+                    if kind == "minute":
+                        raise RAGError("Gemini is rate-limiting requests (per-minute limit). "
+                                       "Please wait 1-2 minutes and click Retry.")
                     raise RAGError("Could not create embeddings. Please check the Gemini API key and try again.")
-                time.sleep(2 ** attempt * 2)
-        if i + EMBED_BATCH < len(texts):
-            time.sleep(0.5)
+                wait = _retry_delay(e, min(5 * 2 ** attempt, 40))
+                if progress:
+                    progress(min(i, total), total, f"Rate limit hit, waiting {int(wait)}s ...")
+                time.sleep(wait)
+        if progress:
+            progress(min(i + EMBED_BATCH, total), total, "Embedding chunks")
+        if i + EMBED_BATCH < total:
+            time.sleep(1.5)  # stay under the free-tier per-minute limit
     return vectors
 
 
@@ -218,9 +266,12 @@ def delete_file(session_id, file_name):
         log.warning("delete failed: %s", e)
 
 
-def index_pdf(session_id, file_name, data: bytes):
+def index_pdf(session_id, file_name, data: bytes, progress=None):
     """Extract -> chunk -> embed -> store. Returns stats for the sidebar."""
-    from qdrant_client import models
+    try:
+        from qdrant_client import models
+    except Exception as e:
+        raise RAGError("Package problem -> " + safe_error(e) + " (check requirements.txt)")
     if len(data) > MAX_PDF_MB * 1024 * 1024:
         raise RAGError(f"File is larger than {MAX_PDF_MB} MB.")
     pages, total_pages = extract_pages(data)
@@ -241,7 +292,7 @@ def index_pdf(session_id, file_name, data: bytes):
     if existing + len(items) > MAX_CHUNKS_PER_SESSION:
         raise RAGError("Too many documents in this session. Remove a file and try again.")
 
-    vectors = embed([c for _, c in items], "RETRIEVAL_DOCUMENT")
+    vectors = embed([c for _, c in items], "RETRIEVAL_DOCUMENT", progress)
     points = [
         models.PointStruct(
             id=str(uuid.uuid4()),
@@ -283,12 +334,16 @@ def retrieve(session_id, question, file_name=None, k=TOP_K):
 # ----------------------------------------------------------------- LLM
 def generate_answer(question, chunks, organization=""):
     """Ask Gemini using ONLY the retrieved chunks. Fails over across models."""
-    from google.genai import types
+    try:
+        from google.genai import types
+        client = _gemini()
+    except Exception as e:
+        log.exception("could not start Gemini client")
+        raise RAGError("Could not start the Gemini client -> " + safe_error(e))
     context = "\n\n".join(
         f"[Source {c['rank']} | {c['source']} | page {c['page']}]\n{c['text']}" for c in chunks)
     org = f"Organization / topic: {organization}\n" if organization else ""
     prompt = f"{org}<context>\n{context}\n</context>\n\n<question>\n{question}\n</question>"
-    client = _gemini()
     last_err = None
     for model in chat_models():
         for attempt in range(2):
